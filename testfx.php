@@ -1,13 +1,26 @@
 <?php
 
-function print_result($success, $actual, $expected, $duration) {
-  if($success) {
+function monitor($action) {
+  $start = microtime(true);
+  $action();
+  $end = microtime(true);
+
+  $duration = $end - $start;
+  return $duration;
+}
+
+function print_result($testResult) {
+  if($testResult->success) {
     echo "Success";
   }
   else {
-    print_fail($actual, $expected);
+    print_fail($testResult->actual, $testResult->expected);
   }
-  print(" in ".substr($duration, 0, 4)." ms.\n\n");
+  print(" in ".format_duration($testResult->duration)." ms.\n\n");
+}
+
+function format_duration($duration) {
+  return substr($duration, 0, 4);
 }
 
 function print_fail($actual, $expected) {
@@ -21,21 +34,37 @@ function print_fail($actual, $expected) {
   print("\n");
 }
 
-function monitor($action) {
-  $start = microtime(true);
-  $action();
-  $end = microtime(true);
-
-  $duration = $end - $start;
-  return $duration;
+class TestResult {
+  public $actual;
+  public $duration;
+  public $expected;
+  public $success;
 }
 
 function expect($expected, $testCase) {
   $result = monitorTestCase($testCase);
-  $actual = $result[0];
-  $duration = $result[1];
-  $success = ($actual == $expected);
-  print_result($success, $actual, $expected, $duration);
+  $testResult = new TestResult();
+  $testResult->expected = $expected;
+  $testResult->duration = $result[1];
+  $testResult->actual = $result[0];
+  $testResult->success = ($testResult->actual == $expected);
+  return $testResult;
+}
+
+function expect_times($expected, $times, $testCase) {
+  $totalDuration = 0;
+  for ($run=0; $run < $times; $run++) {
+    $testResult = expect($expected, $testCase);
+    if(!$testResult->success) {
+      print("Run ".$run." failed");
+      print_result($testResult);
+      break;
+    }
+    $totalDuration += $testResult->duration;
+  }
+
+  $averageDuration = $totalDuration / $times;
+  print("Average duration: ".format_duration($averageDuration)." \n");
 }
 
 function monitorTestCase($testCase) {
